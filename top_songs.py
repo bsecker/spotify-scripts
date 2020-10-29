@@ -50,7 +50,9 @@ def main(args: configargparse.Namespace):
 
     # create a playlist
     new_playlist_name = f"Top tracks from artists in {playlist_name}"
-    playlist_response = sp.user_playlist_create(user_uri, new_playlist_name)
+    playlist_response = sp.user_playlist_create(user_uri,
+                                                new_playlist_name,
+                                                description="Auto-generated playlist! (https://github.com/bsecker/spotify-scripts)")
 
     logging.info(f"Created playlist: {new_playlist_name}")
 
