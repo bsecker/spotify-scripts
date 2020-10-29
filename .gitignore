@@ -1,3 +1,4 @@
 auth.cfg
 venv/
 .idea/
+.cache
