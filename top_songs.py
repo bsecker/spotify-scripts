@@ -42,10 +42,7 @@ def main(args: configargparse.Namespace):
 
     # get top songs from each artist
     top_tracks_per_artist = [sp.artist_top_tracks(artist) for artist in artists_unique]
-
     top_tracks = [tracks['tracks'] for tracks in top_tracks_per_artist]
-
-    # TODO error check for artists with less than 3 songs!
     track_urls = [track['uri'] for artist in top_tracks for track in artist[:3]]
 
     # create a playlist
