@@ -4,10 +4,15 @@ import spotipy
 import configargparse
 from spotipy.oauth2 import SpotifyClientCredentials, SpotifyOAuth
 import logging
+import requests
+import shutil
+import os
+from PIL import Image
 
 logging.basicConfig(level=logging.INFO)
 
 SCOPE = 'playlist-modify-public'
+DOWNLOAD_FOLDER = "download"
 
 cache = ['https://i.scdn.co/image/ab67616d0000b273de437d960dda1ac0a3586d97',
          'https://i.scdn.co/image/ab67616d0000b273299e8e9983e2b0455e5e8505',
@@ -79,7 +84,10 @@ cache = ['https://i.scdn.co/image/ab67616d0000b273de437d960dda1ac0a3586d97',
          'https://i.scdn.co/image/ab67616d0000b273dc9b0131146fe8798c3f46ed']
 
 
-def retrieve_album_art_urls(sp, playlist: str):
+def retrieve_album_art_urls(sp, playlist: str) -> list:
+    """
+    :return a list of urls of all the unique album arts in the supplied playlist
+    """
     urls = []
     offset = 0
 
@@ -95,8 +103,63 @@ def retrieve_album_art_urls(sp, playlist: str):
 
         offset += len(response['items'])
 
-    return list(set(urls))  # remove duplicates
+    uniq_urls = list(dict.fromkeys(urls))  # remove duplicates
+    logging.info(f"found {len(uniq_urls)} urls")
+    return uniq_urls
 
+def download_album_art(urls: list):
+
+    if not os.path.exists(DOWNLOAD_FOLDER):
+        os.mkdir(DOWNLOAD_FOLDER)
+
+    for index, url in enumerate(urls):
+        r = requests.get(url, stream=True)
+
+        if r.status_code == 200:
+            r.raw.decode_content = True
+
+            filename = f"{DOWNLOAD_FOLDER}/album-{index:02}.png"
+
+            # write file to disk
+            with open(filename, 'wb') as f_out:
+                shutil.copyfileobj(r.raw, f_out)
+
+            logging.info(f"Downloaded and saved {url} ({filename})")
+
+        else:
+            logging.warning(f"url returned non-200 response, skipping: {url}")
+
+def generate_poster(images_path=DOWNLOAD_FOLDER, poster_width=5120, poster_height=7680, columns=8):
+    img = Image.new('RGB', (poster_width, poster_height), color=0)
+
+    album_width = poster_width // columns # truncate to int
+
+    path, dirs, files = next(os.walk(DOWNLOAD_FOLDER))
+    images_count = len(files)
+
+    logging.info(f"Generating poster from {images_count} images")
+
+    # there must be a smarter way of doing this with modulo but I'm half asleep
+    row = 0
+    col = 0
+    for image in sorted(files):
+
+        logging.info(f"Inserting {images_path}/{image} at {col},{row}")
+
+        album_art = Image.open(f"{images_path}/{image}")
+        album_art.resize((album_width, album_width))
+
+        img.paste(album_art, (col*album_width, row*album_width))
+
+        col += 1
+        # go down to next row
+        if col == columns:
+            col = 0
+            row += 1
+
+    poster_filename = "out.png"
+    img.save(poster_filename)
+    logging.info(f"saved to {poster_filename}")
 
 
 def main(args: configargparse.Namespace):
@@ -107,11 +170,12 @@ def main(args: configargparse.Namespace):
                                 redirect_uri=args.redirect_uri)
     sp = spotipy.Spotify(auth_manager=auth_manager)
 
-    urls_uniq = retrieve_album_art_urls(sp, args.playlist)
-    urls_uniq = cache
+    # urls_uniq = retrieve_album_art_urls(sp, args.playlist)
+    # urls_uniq = cache
 
-    print(urls_uniq)
-
+    # download_album_art(urls_uniq)
+    generate_poster()
+    # print(urls_uniq)
 
 if __name__ == "__main__":
     parser = configargparse.ArgParser(default_config_files=["auth.cfg"])
