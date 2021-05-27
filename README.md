@@ -4,6 +4,15 @@ Setup:
 
 `pip install -r requirements.txt`
 
+optionally: create a file called `auth.cfg` and populate the following:
+
+```ini
+client-id=<fill me in>
+client-secret=<fill me in>
+playlist=<fill me in>
+redirect-uri=http://localhost:8090
+```
+
 ## Artist Top Songs from Playlist
 
 _Script: `top-songs.py`_
@@ -44,3 +53,10 @@ Metrik - Ex Machina
 ```
 
 __Inspiration__: So I can save the songs I listened to in a mixcloud mix. Mixcloud hides the tracklist for free users, but the script mentioned above generates a table in the mix description. The eventual goal with this script is to incorporate the mixcloud track-list script into here so all the user needs to do is put in the mix url and it generates the playlist
+
+## Playlist Poster Generator
+
+_Script: `playlist_poster_generator.py`_
+
+Generates a poster using the album art from the songs in a playlist.
+
