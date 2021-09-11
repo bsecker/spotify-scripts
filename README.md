@@ -60,3 +60,6 @@ _Script: `playlist_poster_generator.py`_
 
 Generates a poster using the album art from the songs in a playlist.
 
+I used it to generate this:
+
+![](9x11-final-small.png)

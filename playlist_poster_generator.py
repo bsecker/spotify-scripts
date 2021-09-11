@@ -7,7 +7,7 @@ import logging
 import requests
 import shutil
 import os
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 
 logging.basicConfig(level=logging.INFO)
 
@@ -83,6 +83,12 @@ cache = ['https://i.scdn.co/image/ab67616d0000b273de437d960dda1ac0a3586d97',
          'https://i.scdn.co/image/ab67616d0000b2733cb1d402ce635f569adef111',
          'https://i.scdn.co/image/ab67616d0000b273dc9b0131146fe8798c3f46ed']
 
+cached_average_rating = [7.5, 8, 6, 5.5, 5.5, 8, 6.5, 6, 5.5, 8, 2, 5.5, 7, 7, 5.5, 7, 9, 8, 6.5, 6.5, 1.5, 8.5, 7, 7.5,
+                         8, 5, 6.5, 7, 8, 7, 4, 7, 7, 7, 4.5, 7.5, 8.5, 4.5, 6.5, 5.5, 7.5, 7, 7.5, 6.5, 9, 7.5, 6.5, 5,
+                         7, 5.5, 5.5, 6.5, 5, 6, 8, 8, 8, 8, 6.5, 4.5, 6.5, 6, 5.5, 8.5, 3.5, 4.5, 7, 9.5, 6.5, 5.5,
+                         5.5, 7.5, 5.5, 8.5, 7, 7.5, 4.5, 7.5, 8, 4.5, 7.5, 4, 5, 6.5, 3, 7, 4, 6, 8.5, 8, 5.5, 8.5,
+                         5.5, 8, 6, 2.5, 4.5, 9.5, 8]
+
 
 def retrieve_album_art_urls(sp, playlist: str) -> list:
     """
@@ -107,8 +113,8 @@ def retrieve_album_art_urls(sp, playlist: str) -> list:
     logging.info(f"found {len(uniq_urls)} urls")
     return uniq_urls
 
-def download_album_art(urls: list):
 
+def download_album_art(urls: list):
     if not os.path.exists(DOWNLOAD_FOLDER):
         os.mkdir(DOWNLOAD_FOLDER)
 
@@ -129,10 +135,11 @@ def download_album_art(urls: list):
         else:
             logging.warning(f"url returned non-200 response, skipping: {url}")
 
-def generate_poster(images_path=DOWNLOAD_FOLDER, poster_width=5120, poster_height=7680, columns=8):
+
+def generate_poster(images_path=DOWNLOAD_FOLDER, poster_width=5760, poster_height=7040, columns=9, overlay_type=None):
     img = Image.new('RGB', (poster_width, poster_height), color=0)
 
-    album_width = poster_width // columns # truncate to int
+    album_width = poster_width // columns  # truncate to int
 
     path, dirs, files = next(os.walk(DOWNLOAD_FOLDER))
     images_count = len(files)
@@ -142,14 +149,21 @@ def generate_poster(images_path=DOWNLOAD_FOLDER, poster_width=5120, poster_heigh
     # there must be a smarter way of doing this with modulo but I'm half asleep
     row = 0
     col = 0
-    for image in sorted(files):
+    for image_num, image in enumerate(sorted(files)):
 
         logging.info(f"Inserting {images_path}/{image} at {col},{row}")
 
         album_art = Image.open(f"{images_path}/{image}")
         album_art.resize((album_width, album_width))
 
-        img.paste(album_art, (col*album_width, row*album_width))
+        img.paste(album_art, (col * album_width, row * album_width))
+
+        # add overlay
+        if overlay_type:
+            # third arg means alpha channel is used as mask
+            # https://stackoverflow.com/questions/5324647/how-to-merge-a-transparent-png-image-with-another-image-using-pil
+            overlay = overlay_type(cached_average_rating[image_num], album_width)
+            img.paste(overlay, (col * album_width, row * album_width), overlay)
 
         col += 1
         # go down to next row
@@ -157,7 +171,69 @@ def generate_poster(images_path=DOWNLOAD_FOLDER, poster_width=5120, poster_heigh
             col = 0
             row += 1
 
+    return img
+
+
+def dogtag_overlay(value, album_width):
+    overlay = Image.new("RGBA", (album_width, album_width), (255, 255, 255, 0))
+
+    d = ImageDraw.Draw(overlay)
+
+    fill_value = int((value / 10) * 255)
+    mult = 0.5
+    bound = 3
+    text_color = int(200-(mult*fill_value) if value <= bound else (100-(mult*fill_value)))
+
+    font = ImageFont.truetype("Familiar Pro-Bold.otf", 40)
+
+    third = album_width / 6
+    # d.polygon(((album_width-third, 0), (album_width, 0), (album_width, third)), fill=(255-fill_value, fill_value, 0))
+    d.polygon(((album_width - third, 0), (album_width, 0), (album_width, third)),
+              fill=(fill_value, fill_value, fill_value, 255))
+    d.text((album_width - 10, 10), str(value), anchor='rt', font=font, fill=(text_color, text_color, text_color, 255))
+
+    return overlay
+
+
+def bar_overlay(value, album_width):
+    overlay = Image.new("RGBA", (album_width, album_width), (255, 255, 255, 0))
+
+    d = ImageDraw.Draw(overlay)
+
+    fill_value = int((value / 10) * 255)
+
+    height = 20
+    # d.text((10, 10), "hello", fill=(255,255,0, 128))
+    d.rectangle(((0, album_width - height), (album_width, album_width)), fill=(255 - fill_value, fill_value, 0))
+
+    return overlay
+
+
+def border_overlay(value, album_width):
+    overlay = Image.new("RGBA", (album_width, album_width), (255, 255, 255, 0))
+
+    d = ImageDraw.Draw(overlay)
+
+    fill_value = int((value / 10) * 255)
+
+    height = 20
+    # d.text((10, 10), "hello", fill=(255,255,0, 128))
+    d.rectangle((0, 0, album_width, album_width),
+                fill=(0, 0, 0, 0),
+                outline=(255 - fill_value, fill_value, 0, 255),
+                width=10
+                )
+
+    return overlay
+
+
+def greyscale_overlay(value, album_width):
+    pass
+
+
+def save_img(img):
     poster_filename = "out.png"
+    logging.info("saving...")
     img.save(poster_filename)
     logging.info(f"saved to {poster_filename}")
 
@@ -174,8 +250,10 @@ def main(args: configargparse.Namespace):
     # urls_uniq = cache
 
     # download_album_art(urls_uniq)
-    generate_poster()
+    img = generate_poster(overlay_type=dogtag_overlay)
+    save_img(img)
     # print(urls_uniq)
+
 
 if __name__ == "__main__":
     parser = configargparse.ArgParser(default_config_files=["auth.cfg"])
