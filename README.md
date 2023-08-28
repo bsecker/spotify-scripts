@@ -13,6 +13,12 @@ playlist=<fill me in>
 redirect-uri=http://localhost:8090
 ```
 
+## Orphan Tracks
+
+_Script: `find_orphans.py --help`_
+
+I store every song I "like" into a playlist - now I have something like 160+ playlists based on genre, mood, etc. Sometimes I forget/miss songs. This script was to help find songs that I might have missed.
+
 ## Artist Top Songs from Playlist
 
 _Script: `top-songs.py`_
